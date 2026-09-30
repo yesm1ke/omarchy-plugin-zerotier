@@ -19,9 +19,16 @@
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
-      "refreshIntervalSec": 30
+      "refreshIntervalSec": 30,
+      "hideWithTray": true
     },
     "schema": [
+      {
+        "key": "hideWithTray",
+        "type": "boolean",
+        "label": "Hide the icon with the system tray drawer",
+        "defaultValue": true
+      },
       {
         "key": "refreshIntervalSec",
         "type": "integer",

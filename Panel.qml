@@ -160,8 +160,23 @@ Panel {
     return Math.round(ms) + " ms"
   }
 
-  implicitWidth: button.implicitWidth
-  implicitHeight: button.implicitHeight
+  // ---- Hide with the system tray drawer ------------------------------------
+  // The bar icon collapses to nothing while the tray drawer (the ‹ chevron of
+  // omarchy.tray) is closed and slides out together with it; the logic lives
+  // in the shared TrayFollower helper. Place the widget right after
+  // omarchy.tray. Turn off with the `hideWithTray` setting.
+  property alias trayFollower: follower
+  readonly property bool barVertical: bar ? bar.vertical === true : false
+
+  TrayFollower {
+    id: follower
+    active: root.setting("hideWithTray", true) !== false
+    extraHold: root.opened
+  }
+
+  clip: true
+  implicitWidth: barVertical ? button.implicitWidth : Math.round(button.implicitWidth * follower.reveal)
+  implicitHeight: barVertical ? Math.round(button.implicitHeight * follower.reveal) : button.implicitHeight
 
   onOpenedChanged: if (opened) {
     cursorActive = false
@@ -206,7 +221,13 @@ Panel {
 
   BarIconButton {
     id: button
-    anchors.fill: parent
+    // Natural size, pinned to the outer edge: the clipped root reveals it as
+    // the drawer opens, and the panel anchor does not move while it does.
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    width: implicitWidth
+    height: implicitHeight
+    opacity: follower.reveal
     bar: root.bar
     iconComponent: Component {
       Item {
