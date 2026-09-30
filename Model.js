@@ -257,8 +257,10 @@ function agoLabel(ms) {
   return Math.floor(days / 30) + "mo ago"
 }
 
+// "missing port" is what zerotier-cli 1.16 prints before the first setup, when
+// the -D directory (and its zerotier-one.port file) does not exist yet.
 function tokenError(text) {
-  return /authtoken|not found or readable|permission denied|missing authentication token|401/i.test(String(text || ""))
+  return /authtoken|not found or readable|permission denied|missing authentication token|missing port|zerotier-one\.port not found|401/i.test(String(text || ""))
 }
 
 if (typeof module !== "undefined") {
