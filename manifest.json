@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.michallote.zerotier",
+  "id": "io.github.yesm1ke.zerotier",
   "name": "ZeroTier",
   "version": "1.1.0",
   "author": "Michallote, yesm1ke",
   "license": "MIT",
-  "description": "ZeroTier in the Omarchy bar: service toggle, joined networks, and a Central-backed member list with names, ZeroTier IPs and one-tap copy.",
+  "description": "ZeroTier in the Omarchy bar: service toggle, joined networks, and a Central-backed member list with names, ZeroTier IPs and one-tap copy. Patched fork of io.github.michallote.zerotier.",
   "kinds": [
     "bar-widget"
   ],

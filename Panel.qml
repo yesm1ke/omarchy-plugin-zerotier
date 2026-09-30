@@ -9,8 +9,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "io.github.michallote.zerotier"
-  ipcTarget: "io.github.michallote.zerotier"
+  moduleName: "io.github.yesm1ke.zerotier"
+  ipcTarget: "io.github.yesm1ke.zerotier"
   manageIpc: false
 
   property string focusSection: "header"
