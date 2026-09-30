@@ -3,7 +3,7 @@
   "id": "io.github.michallote.zerotier",
   "name": "ZeroTier",
   "version": "1.1.0",
-  "author": "Michallote",
+  "author": "Michallote, yesm1ke",
   "license": "MIT",
   "description": "ZeroTier in the Omarchy bar: service toggle, joined networks, and a Central-backed member list with names, ZeroTier IPs and one-tap copy.",
   "kinds": [

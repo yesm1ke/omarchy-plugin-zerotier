@@ -93,7 +93,9 @@ Item {
     "printf 'url = \"https://api.zerotier.com/api/v1/network/%s/member\"\\n' \"$net\"",
     "} > \"$tmp\"",
     "chmod 600 \"$tmp\"",
-    "exec curl -K \"$tmp\""
+    // No `exec`: the shell must outlive curl so the EXIT trap removes the
+    // token-bearing config file after every fetch.
+    "curl -K \"$tmp\""
   ].join("\n")
   // Store the pasted Central token in the mode-0600 central-token file with
   // the same stdin discipline: the secret is piped in, never part of the
