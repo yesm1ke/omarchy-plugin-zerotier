@@ -124,58 +124,60 @@ Item {
     "mv -T -- \"$tmp\" \"$file\"",
     "chmod 600 \"$file\""
   ].join("\n")
-  // One privileged step, run through pkexec: copy the daemon's local API
-  // token into the invoking user's ~/.config/zerotier so zerotier-cli can run
-  // unprivileged afterwards. Deliberately CONSTANT — no settings, no
-  // environment, no arguments flow into it:
-  //  - user/home come from PKEXEC_UID (set by pkexec) via id/getent, never
-  //    from $USER/$HOME or plugin settings;
-  //  - the destination is fixed to <home>/.config/zerotier and every path
-  //    component is rejected if it is a symlink or a non-directory;
-  //  - directories are created individually (no mkdir -p across the tree),
-  //    files are staged with mktemp and installed with mv -T (replacing a
-  //    destination symlink instead of following it), and ownership is set
-  //    per path — never a recursive chown.
+  // One privileged step, run through pkexec: hand the daemon's local API
+  // token to the invoking user so zerotier-cli can run unprivileged
+  // afterwards. Root never touches the user's home: it only opens the token
+  // (a fixed root-side path) and drops to the invoking uid with setpriv;
+  // every filesystem operation under ~/.config/zerotier then runs as that
+  // user (_localAccessUserScript), so a swapped directory or symlink can at
+  // most misdirect the user's own write, never a root chown/chmod/mv.
+  //  - the uid comes from PKEXEC_UID (set by pkexec), never from $USER/$HOME
+  //    or plugin settings; uid 0 is refused;
+  //  - setpriv --reset-env rebuilds HOME/USER/PATH from the account entry;
+  //  - $1 is the user-side script: it runs with the user's privileges only.
   readonly property string _localAccessScript: [
     "set -eu",
     "src=\"/var/lib/zerotier-one/authtoken.secret\"",
     "uid=\"${PKEXEC_UID:-}\"",
     "case \"$uid\" in ''|*[!0-9]*) echo \"setup: refusing without PKEXEC_UID\" >&2; exit 1;; esac",
-    "user=\"$(id -un \"$uid\" 2>/dev/null)\" || { echo \"setup: unknown uid\" >&2; exit 1; }",
-    "[ -n \"$user\" ] || { echo \"setup: unknown uid\" >&2; exit 1; }",
-    "home=\"$(getent passwd \"$user\" | cut -d: -f6)\"",
+    "[ \"$uid\" -ne 0 ] || { echo \"setup: refusing uid 0\" >&2; exit 1; }",
+    "gid=\"$(id -g \"$uid\" 2>/dev/null)\" || { echo \"setup: unknown uid\" >&2; exit 1; }",
+    "case \"$gid\" in ''|*[!0-9]*) echo \"setup: unknown uid\" >&2; exit 1;; esac",
+    "[ -n \"${1:-}\" ] || { echo \"setup: missing user step\" >&2; exit 1; }",
+    "[ -f \"$src\" ] && [ ! -L \"$src\" ] && [ -r \"$src\" ] || { echo \"setup: daemon token not found\" >&2; exit 1; }",
+    "/usr/bin/setpriv --reuid \"$uid\" --regid \"$gid\" --init-groups --reset-env /usr/bin/bash -c \"$1\" zt-setup-user < \"$src\"",
+    "systemctl start zerotier-one.service || true"
+  ].join("\n")
+  // User-side half of the setup step: runs as the invoking user with the
+  // daemon token on stdin. The destination is fixed to ~/.config/zerotier;
+  // symlinks and non-directory path components are refused, files are staged
+  // with mktemp and installed with mv -T.
+  readonly property string _localAccessUserScript: [
+    "set -eu",
+    "umask 077",
+    "home=\"${HOME:-}\"",
     "case \"$home\" in /*) ;; *) echo \"setup: refusing bad home\" >&2; exit 1;; esac",
-    "[ \"$home\" != \"/\" ] || { echo \"setup: refusing bad home\" >&2; exit 1; }",
-    "[ -d \"$home\" ] && [ ! -L \"$home\" ] || { echo \"setup: refusing bad home\" >&2; exit 1; }",
-    "owner=\"$(id -un \"$uid\"):$(id -gn \"$uid\")\" || exit 1",
+    "[ \"$home\" != \"/\" ] && [ -d \"$home\" ] || { echo \"setup: refusing bad home\" >&2; exit 1; }",
     "cfg=\"$home/.config\"",
     "dir=\"$cfg/zerotier\"",
     "for p in \"$cfg\" \"$dir\"; do",
     "if [ -L \"$p\" ]; then echo \"setup: refusing symlink at $p\" >&2; exit 1; fi",
     "if [ -e \"$p\" ] && [ ! -d \"$p\" ]; then echo \"setup: refusing non-directory at $p\" >&2; exit 1; fi",
     "done",
-    "[ -r \"$src\" ] || { echo \"setup: daemon token not found\" >&2; exit 1; }",
-    "umask 077",
+    "[ -e \"$cfg\" ] || mkdir -m 0700 \"$cfg\"",
+    "[ -e \"$dir\" ] || mkdir -m 0700 \"$dir\"",
+    "chmod 0700 \"$dir\"",
     "tmp1=\"\"; tmp2=\"\"",
     "trap 'rm -f -- \"$tmp1\" \"$tmp2\" 2>/dev/null || true' EXIT INT TERM HUP",
-    "if [ ! -e \"$cfg\" ]; then mkdir -m 0700 \"$cfg\"; chown \"$owner\" \"$cfg\"; fi",
-    "if [ ! -e \"$dir\" ]; then mkdir -m 0700 \"$dir\"; chown \"$owner\" \"$dir\"; fi",
-    "for p in \"$cfg\" \"$dir\"; do",
-    "[ ! -L \"$p\" ] && [ -d \"$p\" ] || { echo \"setup: refusing unsafe path $p\" >&2; exit 1; }",
-    "done",
-    "chmod 0700 \"$dir\"",
-    "chown \"$owner\" \"$dir\"",
     "tmp1=\"$(mktemp \"$dir/.authtoken.XXXXXX\")\"",
-    "cat -- \"$src\" > \"$tmp1\"",
+    "cat > \"$tmp1\"",
+    "[ -s \"$tmp1\" ] || { echo \"setup: empty daemon token\" >&2; exit 1; }",
     "chmod 0600 \"$tmp1\"",
-    "chown \"$owner\" \"$tmp1\"",
     "mv -T -- \"$tmp1\" \"$dir/authtoken.secret\"",
     "tmp2=\"$(mktemp \"$dir/.port.XXXXXX\")\"",
     "printf '9993' > \"$tmp2\"",
     "chmod 0600 \"$tmp2\"",
-    "chown \"$owner\" \"$tmp2\"",
-    "mv -T -- \"$tmp2\" \"$dir/zerotier-one.port\"",
-    "systemctl start zerotier-one.service || true"
+    "mv -T -- \"$tmp2\" \"$dir/zerotier-one.port\""
   ].join("\n")
   readonly property bool busy: whichProcess.running || infoProcess.running || networksProcess.running
     || peersProcess.running || actionProcess.running || toggleProcess.running || setupProcess.running
@@ -377,14 +379,14 @@ Item {
 
   // One privileged step: copy the daemon's local API token into the invoking
   // user's ~/.config/zerotier (+ port file) and make sure the service is
-  // running, approved through the graphical polkit prompt. _localAccessScript
-  // is fully constant — user, home and destination are derived from
-  // PKEXEC_UID/account data inside the script, never from plugin settings.
+  // running, approved through the graphical polkit prompt. Both scripts are
+  // constant — the uid comes from PKEXEC_UID and the destination from the
+  // account's home, never from plugin settings.
   function setupLocalAccess() {
     if (setupProcess.running) return
     _toggleErr = ""
     actionStatus = "Authorizing ZeroTier access…"
-    setupProcess.command = ["pkexec", "bash", "-c", _localAccessScript]
+    setupProcess.command = ["pkexec", "/usr/bin/bash", "-c", _localAccessScript, "zt-setup", _localAccessUserScript]
     setupProcess.running = true
   }
 
