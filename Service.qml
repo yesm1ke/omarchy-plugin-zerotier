@@ -44,8 +44,8 @@ Item {
   property var peers: []
 
   // ZeroTier Central member list (names + managed IPs). Populated only when a
-  // Central API token is available: the mode-0600 "central-token" file in
-  // localDir wins, with the legacy "apiToken" plugin setting as fallback.
+  // Central API token is available in the mode-0600 "central-token" file in
+  // localDir.
   property string centralToken: ""
   readonly property bool centralConfigured: centralToken !== ""
   property var members: []
@@ -546,12 +546,10 @@ Item {
       id: tokenFileStdout
       waitForEnd: true
       onStreamFinished: {
-        var fileToken = String(text || "").trim()
-        // Legacy "apiToken" plugin setting: memory-only fallback so existing
-        // configs keep working. It is never placed in process arguments —
-        // member fetches receive the effective token over stdin.
-        var legacy = String(root.setting("apiToken", "")).trim().replace(/\s+/g, "")
-        var next = fileToken !== "" ? fileToken : legacy
+        // Only the mode-0600 central-token file is honored. The upstream
+        // "apiToken" plugin setting is dropped on purpose: shell.json is
+        // often kept in a dotfiles repository, and the token would go with it.
+        var next = String(text || "").trim()
         if (next !== root.centralToken) {
           root.centralToken = next
           root.refreshMembers()
