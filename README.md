@@ -35,7 +35,7 @@ history keeps upstream's commit and every change as its own commit.
 
 ```sh
 omarchy plugin add https://github.com/yesm1ke/omarchy-plugin-zerotier --enable
-omarchy bar move io.github.yesm1ke.zerotier --after omarchy.tray
+omarchy bar move io.github.yesm1ke.zerotier --after omarchy.tray   # or io.github.yesm1ke.tray
 ```
 
 Requires `zerotier-one` (`omarchy pkg add zerotier-one`, then
@@ -72,11 +72,17 @@ Escape closes. IPC: `omarchy-shell io.github.yesm1ke.zerotier toggle|refresh|sta
 
 ## Hiding with the tray
 
-`TrayFollower.qml` finds the `omarchy.tray` widget among its sibling bar slots
+`TrayFollower.qml` finds the tray (`io.github.yesm1ke.tray` or the stock
+`omarchy.tray`) among its sibling bar slots
 and mirrors its `expanded` state: the icon collapses while the drawer is
 closed, slides out with it on hover, and keeps the drawer open while hovered
 or while its panel is open. It relies on bar internals; if a future Omarchy
 changes them, the icon simply stays visible.
+
+The stock `omarchy.tray` hides itself, chevron included, while no app has a
+tray icon; the icon then has nothing to reveal it and stays visible. Use
+[omarchy-plugin-tray](https://github.com/yesm1ke/omarchy-plugin-tray) in
+place of `omarchy.tray` to keep the chevron in that case.
 
 ## Uninstall
 

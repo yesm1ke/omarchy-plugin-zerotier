@@ -15,10 +15,10 @@ import QtQuick
 // (omarchy-plugin-zerotier, -tailscale, -bluetooth) so each plugin installs
 // on its own; keep the copies identical.
 //
-// The widget (and any other follower) must sit right after omarchy.tray in
-// the layout. While the pointer is on any follower, or `extraHold` is set
-// (e.g. its panel is open), the whole group — tray drawer included — stays
-// open.
+// The widget (and any other follower) must sit right after the tray in the
+// layout: io.github.yesm1ke.tray (recommended) or the stock omarchy.tray.
+// While the pointer is on any follower, or `extraHold` is set (e.g. its panel
+// is open), the whole group — tray drawer included — stays open.
 //
 // This reaches into bar internals: ModuleSlot.moduleName / activeItem /
 // hovered and Tray.expanded. If any of them is missing after an Omarchy
@@ -40,9 +40,13 @@ Item {
     return null
   }
   readonly property var siblings: slot && slot.parent ? slot.parent.children : []
+  // io.github.yesm1ke.tray wraps the stock tray and keeps its chevron while
+  // the tray is empty; with plain omarchy.tray an empty tray hides itself and
+  // the widget then stays visible (see `usable`).
+  readonly property var trayIds: ["io.github.yesm1ke.tray", "omarchy.tray"]
   readonly property var traySlot: {
     for (var i = 0; i < siblings.length; i++)
-      if (siblings[i] && siblings[i].moduleName === "omarchy.tray") return siblings[i]
+      if (siblings[i] && trayIds.indexOf(siblings[i].moduleName) !== -1) return siblings[i]
     return null
   }
   readonly property var tray: traySlot ? traySlot.activeItem : null
